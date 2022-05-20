@@ -58,6 +58,7 @@ enum {
     PP = 0x02,
     WRSR = 0x1,
     WREN = 0x6,
+    // BP3 = 0x40,
     SRWD = 0x80,
     RESET_ENABLE = 0x66,
     RESET_MEMORY = 0x99,
@@ -450,6 +451,25 @@ static void test_status_reg_write_protection(void)
     flash_reset();
 }
 
+static void test_write_block_protect(void)
+{
+    uint32_t my_page_addr = 0x22500 * FLASH_PAGE_SIZE; /* beyond 16MB */
+
+    spi_conf(CONF_ENABLE_W0);
+
+    spi_ctrl_start_user();
+    writeb(ASPEED_FLASH_BASE, WREN);
+    writeb(ASPEED_FLASH_BASE, WRSR);
+    writeb(ASPEED_FLASH_BASE, 0x5C);
+    writeb(ASPEED_FLASH_BASE, EN_4BYTE_ADDR);
+    writeb(ASPEED_FLASH_BASE, WREN);
+    spi_ctrl_stop_user();
+
+    /* move out USER mode to use direct writes to the AHB bus */
+    spi_ctrl_setmode(CTRL_WRITEMODE, PP);
+    writel(ASPEED_FLASH_BASE, make_be32(my_page_addr));
+}
+
 static char tmp_path[] = "/tmp/qtest.m25p80.XXXXXX";
 
 int main(int argc, char **argv)
@@ -478,6 +498,8 @@ int main(int argc, char **argv)
     qtest_add_func("/ast2400/smc/read_status_reg", test_read_status_reg);
     qtest_add_func("/ast2400/smc/status_reg_write_protection",
                    test_status_reg_write_protection);
+    qtest_add_func("/ast2400/smc/write_block_protect",
+                   test_write_block_protect);
 
     ret = g_test_run();
 

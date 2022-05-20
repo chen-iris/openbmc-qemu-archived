@@ -480,6 +480,10 @@ struct Flash {
     bool reset_enable;
     bool quad_enable;
     bool aai_enable;
+    bool block_protect0;
+    bool block_protect1;
+    bool block_protect2;
+    bool block_protect3;
     bool status_register_write_disabled;
     uint8_t ear;
 
@@ -630,6 +634,17 @@ void flash_write8(Flash *s, uint32_t addr, uint8_t data)
         qemu_log_mask(LOG_GUEST_ERROR, "M25P80: write with write protect!\n");
         return;
     }
+    int block_protect_value = (s->block_protect3 << 3) |
+																														(s->block_protect2 << 2) |
+																														(s->block_protect1 << 1) |
+																														(s->block_protect0 << 0);
+
+    int protected_area = 1 << (block_protect_value - 1);
+
+    if (block_protect_value != 0 && addr > 511 - protected_area) {
+        qemu_log_mask(LOG_GUEST_ERROR, "M25P80: write with write protect!\n");
+        return;
+			 }
 
     if ((prev ^ data) & data) {
         trace_m25p80_programming_zero_to_one(s, addr, prev, data);
@@ -741,6 +756,10 @@ static void complete_collecting_data(Flash *s)
             break;
         }
         s->status_register_write_disabled = extract32(s->data[0], 7, 1);
+        s->block_protect0 = extract32(s->data[0], 2, 1);
+        s->block_protect1 = extract32(s->data[0], 3, 1);
+        s->block_protect2 = extract32(s->data[0], 4, 1);
+        s->block_protect3 = extract32(s->data[0], 6, 1);
 
         switch (get_man(s)) {
         case MAN_SPANSION:
@@ -1195,7 +1214,7 @@ static void decode_new_cmd(Flash *s, uint32_t value)
             break;
         default:
             s->needed_bytes = 1;
-            s->state = STATE_COLLECTING_DATA;
+            s->state = STATE_COLLECTING_VAR_LEN_DATA;
          }
         s->pos = 0;
         break;
@@ -1213,6 +1232,10 @@ static void decode_new_cmd(Flash *s, uint32_t value)
     case RDSR:
         s->data[0] = (!!s->write_enable) << 1;
         s->data[0] |= (!!s->status_register_write_disabled) << 7;
+        s->data[0] |= (!!s->block_protect0) << 2;
+        s->data[0] |= (!!s->block_protect1) << 3;
+        s->data[0] |= (!!s->block_protect2) << 4;
+        s->data[0] |= (!!s->block_protect3) << 6;
 
         if (get_man(s) == MAN_MACRONIX || get_man(s) == MAN_ISSI) {
             s->data[0] |= (!!s->quad_enable) << 6;
@@ -1554,6 +1577,10 @@ static void m25p80_reset(DeviceState *d)
 
     s->write_protect_pin = true;
     s->status_register_write_disabled = false;
+    s->block_protect0 = false;
+    s->block_protect1 = false;
+    s->block_protect2 = false;
+    s->block_protect3 = false;
 
     reset_memory(s);
 }
