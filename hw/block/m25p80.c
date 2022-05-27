@@ -41,19 +41,16 @@
 /* Fields for FlashPartInfo->flags */
 
 /* erase capabilities */
-#define ER_4K 1
-#define ER_32K 2
-#define SNOR_F_HAS_SR_TB BIT(2)
-#define SNOR_F_HAS_SR_BP3_BIT6 BIT(10)
-/* set to allow the page program command to write 0s back to 1. Useful for
- * modelling EEPROM with SPI flash command set
- */
-#define EEPROM 0x100
 
-/* 16 MiB max in 3 byte address mode */
-#define MAX_3BYTES_SIZE 0x1000000
-
-#define SPI_NOR_MAX_ID_LEN 6
+enum spi_nor_option_flags {
+    ER_4K                  = BIT(0),
+    ER_32K                 = BIT(1),
+    EEPROM                 = BIT(2),
+    SNOR_F_HAS_SR_TB       = BIT(3),
+    SNOR_F_HAS_SR_BP3_BIT6 = BIT(4),
+    SPI_NOR_MAX_ID_LEN     = BIT(5),
+    MAX_3BYTES_SIZE        = BIT(6),
+};
 
 typedef struct FlashPartInfo {
     const char *part_name;
@@ -915,6 +912,8 @@ static void reset_memory(Flash *s)
     default:
         break;
     }
+
+    memset(s->storage, 0xff, s->size);
 
     trace_m25p80_reset_done(s);
 }
