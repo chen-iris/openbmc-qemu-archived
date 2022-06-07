@@ -26,6 +26,7 @@
 #include "qemu/error-report.h"
 #include "qemu/units.h"
 #include "hw/qdev-clock.h"
+#include "hw/ssi/spi_gpio.h"
 
 static struct arm_boot_info aspeed_board_binfo = {
     .board_id = -1, /* device-tree-only board */
@@ -368,6 +369,24 @@ static void aspeed_machine_init(MachineState *machine)
     qdev_prop_set_uint32(DEVICE(&bmc->soc), "uart-default",
                          amc->uart_default);
     qdev_realize(DEVICE(&bmc->soc), NULL, &error_abort);
+
+    SpiGpioState *spi_gpio = SPI_GPIO(qdev_new(TYPE_SPI_GPIO));
+    qdev_realize(DEVICE(spi_gpio), NULL, &error_fatal);
+
+    DeviceState *m25p80 = qdev_new("n25q256a");
+    qdev_realize(m25p80, BUS(spi_gpio->spi), &error_fatal);
+
+    spi_gpio->cs_line = qdev_get_gpio_in_named(m25p80, SSI_GPIO_CS, 0);
+    qdev_connect_gpio_out_named(DEVICE(&bmc->soc.gpio),
+                                "sysbus-irq", 185, spi_gpio->cs_line);
+
+    qdev_connect_gpio_out_named(DEVICE(&bmc->soc.gpio),
+                                "sysbus-irq", 188, spi_gpio->sck);
+    qdev_connect_gpio_out_named(DEVICE(&bmc->soc.gpio),
+                                "sysbus-irq", 189, spi_gpio->mosi);
+
+    object_property_set_link(OBJECT(&bmc->soc.gpio), "sysbus-irq[190]",
+                             OBJECT(spi_gpio->miso), &error_abort);
 
     memory_region_add_subregion(get_system_memory(),
                                 sc->memmap[ASPEED_DEV_SDRAM],
