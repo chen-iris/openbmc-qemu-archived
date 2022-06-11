@@ -24,12 +24,29 @@
 
 #include "hw/ssi/spi_gpio.h"
 
-#define SSI_GPIO_CS "ssi-gpio-cs"
+static void cs_line_handler(void *opaque, int n, int level)
+{
+    SpiGpioState *s = SPI_GPIO(opaque);
+    s->cs = !!level;
+}
 
-static void cs_line_handler(void *opaque, int n, int level) {}
-static void sck_handler(void *opaque, int n, int level) {}
-static void miso_handler(void *opaque, int n, int level) {}
-static void mosi_handler(void *opaque, int n, int level) {}
+static void clk_handler(void *opaque, int n, int level)
+{
+    SpiGpioState *s = SPI_GPIO(opaque);
+    s->clk = !!level;
+}
+
+static void mosi_handler(void *opaque, int n, int level)
+{
+    SpiGpioState *s = SPI_GPIO(opaque);
+    s->mosi = !!level;
+}
+
+static void miso_handler(void *opaque, int n, int level)
+{
+    SpiGpioState *s = SPI_GPIO(opaque);
+    s->miso = !!level;
+}
 
 static void spi_gpio_realize(DeviceState *dev, Error **errp)
 {
@@ -37,14 +54,16 @@ static void spi_gpio_realize(DeviceState *dev, Error **errp)
 
     s->spi = ssi_create_bus(dev, "spi");
 
-    qdev_init_gpio_in_named(dev, cs_line_handler, "cs_line", 1);
-    qdev_init_gpio_in_named(dev, sck_handler, "sck", 1);
-    qdev_init_gpio_in_named(dev, mosi_handler, "mosi", 1);
-    qdev_init_gpio_in_named(dev, miso_handler, "miso", 1);
+    qdev_init_gpio_in_named(dev, cs_line_handler, "SPI_CS_IN", 1);
+    qdev_init_gpio_in_named(dev, clk_handler, "SPI_CLK", 1);
+    qdev_init_gpio_in_named(dev, mosi_handler, "SPI_MOSI", 1);
+    qdev_init_gpio_in_named(dev, cs_line_handler, "SPI_CS_OUT", 1);
+    qdev_init_gpio_in_named(dev, miso_handler, "SPI_MISO", 1);
 
-    s->sck = qdev_get_gpio_in_named(dev, "sck", 0);
-    s->mosi = qdev_get_gpio_in_named(dev, "mosi", 0);
-    s->miso = qdev_get_gpio_in_named(dev, "miso", 0);
+    s->cs = 1;
+    s->clk = 1;
+    s->mosi = 1;
+    s->miso = 1;
 }
 
 static void SPI_GPIO_class_init(ObjectClass *klass, void *data)

@@ -35,7 +35,7 @@ OBJECT_DECLARE_SIMPLE_TYPE(SpiGpioState, SPI_GPIO);
 struct SpiGpioState {
     DeviceState parent;
     SSIBus *spi;
-    qemu_irq sck, miso, mosi, cs_line;
+    int clk, miso, mosi, cs;
 };
 
 #endif /* SPI_GPIO_H */

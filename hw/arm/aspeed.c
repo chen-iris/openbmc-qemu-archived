@@ -175,6 +175,12 @@ struct AspeedMachineState {
 #define BLETCHLEY_BMC_HW_STRAP1 AST2600_EVB_HW_STRAP1
 #define BLETCHLEY_BMC_HW_STRAP2 AST2600_EVB_HW_STRAP2
 
+/* ASPEED GPIO propname values */
+#define AST_GPIO_IRQ_X0_NUM 185
+#define AST_GPIO_IRQ_X3_NUM 188
+#define AST_GPIO_IRQ_X4_NUM 189
+#define AST_GPIO_IRQ_X5_NAME "sysbus_irq[190]"
+
 /*
  * The max ram region is for firmwares that scan the address space
  * with load/store to guess how much RAM the SoC has.
@@ -376,17 +382,18 @@ static void aspeed_machine_init(MachineState *machine)
     DeviceState *m25p80 = qdev_new("n25q256a");
     qdev_realize(m25p80, BUS(spi_gpio->spi), &error_fatal);
 
-    spi_gpio->cs_line = qdev_get_gpio_in_named(m25p80, SSI_GPIO_CS, 0);
-    qdev_connect_gpio_out_named(DEVICE(&bmc->soc.gpio),
-                                "sysbus-irq", 185, spi_gpio->cs_line);
+    qdev_get_gpio_in_named(m25p80, SSI_GPIO_CS, 0);
 
-    qdev_connect_gpio_out_named(DEVICE(&bmc->soc.gpio),
-                                "sysbus-irq", 188, spi_gpio->sck);
-    qdev_connect_gpio_out_named(DEVICE(&bmc->soc.gpio),
-                                "sysbus-irq", 189, spi_gpio->mosi);
+    qdev_connect_gpio_out_named(DEVICE(&bmc->soc.gpio), "sysbus-irq", AST_GPIO_IRQ_X0_NUM,
+                                qdev_get_gpio_in_named(DEVICE(spi_gpio), "SPI_CS_OUT", 0));
+    qdev_connect_gpio_out_named(DEVICE(&bmc->soc.gpio), "sysbus-irq", AST_GPIO_IRQ_X3_NUM,
+                                qdev_get_gpio_in_named(DEVICE(spi_gpio), "SPI_CLK", 0));
+    qdev_connect_gpio_out_named(DEVICE(&bmc->soc.gpio), "sysbus-irq", AST_GPIO_IRQ_X4_NUM,
+                                qdev_get_gpio_in_named(DEVICE(spi_gpio), "SPI_MOSI", 0));
 
-    object_property_set_link(OBJECT(&bmc->soc.gpio), "sysbus-irq[190]",
-                             OBJECT(spi_gpio->miso), &error_abort);
+    object_property_set_link(OBJECT(&bmc->soc.gpio), AST_GPIO_IRQ_X5_NAME,
+                             OBJECT(qdev_get_gpio_in_named(DEVICE(spi_gpio), "SPI_MISO", 0)),
+                             &error_abort);
 
     memory_region_add_subregion(get_system_memory(),
                                 sc->memmap[ASPEED_DEV_SDRAM],
